@@ -1,0 +1,221 @@
+<html>
+    <head>
+        <title>Chat client</title>
+        <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,500|Roboto:300,400,500&display=swap" rel="stylesheet">
+        <style>
+        *{
+            font-family: 'Montserrat';
+            color: #2d2d2d;
+        }
+        body{
+            background: rgb(245, 247, 249);
+            margin: 0;
+            padding: 0;
+        }
+        form{
+            position: fixed;
+            width: calc(100vw - 40px);
+            bottom: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 80px;
+            padding: 20px;
+            margin: 0;
+            background: white;
+            border-top: 1px solid rgba(0,0,0,0.14);
+        }
+        form input {
+            width: calc(80% - 20px);
+            height: 100%;
+            border: 1px solid rgba(0,0,0,0.14);
+            padding-left: 20px;
+            font-family: 'Roboto';
+            font-size: 16px;
+            transition: 0.2s;
+            border-radius: 3px;
+
+        }
+        form input:focus, form button:focus {
+            outline: 0;
+            box-shadow: 0 0 5px 2px rgba(108, 154, 252, 1);
+        }
+        form button {
+            flex-grow: 1;
+            height: 100%;
+            margin-left: 20px;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-size: 16px;
+            background: white;
+            border: 1px solid rgba(0,0,0,.14);
+            border-radius: 4px;
+            transition: 0.2s;
+            color: rgba(0,0,0,0.7);
+        }
+        form button:hover{
+            transform: translateY(-2px);
+            box-shadow: rgba(0, 0, 0, 0.5) 0px 7px 10px 0px;
+        }
+        div.display{
+            position: fixed;
+            height: calc(100% - 120px);
+            width: 100%;
+            overflow-y: scroll;
+        }
+        div ul{
+            list-style: none;
+            padding-left: 80px;
+        }
+        div ul li {
+            font-family: "Roboto", "Helvectia", arial, sans-serif;
+            letter-spacing: normal;
+            font-weight: 400;
+            font-size: 16px;
+            word-spacing: 1px;
+            color: rgb(102, 102, 102);
+            text-align: left;
+            line-height: 1.8em;
+        }
+        div ul li span{
+            display: block;
+            font-size: 10px;
+            color: rgb(68, 68, 68, 0.5);
+            font-family: 'Montserrat';
+            font-weight: 300;
+            margin-top: 13px;
+            margin-bottom: -4px;
+            letter-spacing: 0.5px;
+        }
+        div.profile{
+            height: 40px;
+            width: 40px;
+            border-radius: 50%;
+            background-size: cover;
+            
+        }
+        li div.profile{
+            margin-top: 10px;
+            margin-left: -60px;
+            position: absolute;
+        }
+        div.toast-container{
+            position: absolute;
+            position: fixed;
+            top: 0px;
+            right: 30px;
+        }
+        div.toast{
+            margin-top: 20px;
+            background: white;
+            border-radius: 3px;
+            right: 0;
+            margin-left: auto;
+            position: relative;
+            width: fit-content;
+            box-shadow: 0 0 5px 4px rgba(108, 154, 252, 0.3);
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            background: rgb(108, 154, 252);
+        }
+        div.toast.disconnect{
+            background: rgb(192, 57, 43);
+            box-shadow: 0 0 5px 4px rgba(192, 57, 43, 0.3);
+        }
+        div.toast .profile{
+            height: 30px;
+            width: 30px;
+            border: 2px solid rgba(255, 255, 255, .8);
+        }
+        div.toast .txt{
+            font-family: "Roboto", "Helvectia", arial, sans-serif;
+            font-weight: 400;
+            font-size: 14px;
+            word-spacing: 0.9px;
+            color: white;
+            text-align: left;
+            font-weight: 400;
+            line-height: 1.8em;
+            margin-left: 10px;
+        }
+        div.toast .txt b{
+            font-family: inherit;
+            color: inherit;
+            font-weight: 500;
+        }
+        </style>
+        <script src="/socket.io/socket.io.js"></script>
+    </head>
+    <body>
+        <div class="toast-container" id="toast-container"></div>
+        <div class="display" id="scrollable">   
+            <ul id="message"></ul>
+        </div>
+        <form action="" id="form">
+            <input id="m" autocomplete="off" />
+            <button>send</button>
+        </form>
+        <script>
+            var socket = io();
+            const input = document.getElementById('m');
+            const display = document.getElementById('message');
+            const scrollContainer = document.getElementById('scrollable');
+            let toastContainer = document.getElementById('toast-container');
+
+            // SCROLL TO BOTTOM
+            const scrollToBottom = () => scrollContainer.scrollTop = scrollContainer.scrollHeight;
+            
+            // TOAST NOTIFICATION
+            const toast = (isDisconnect, user_id) => {
+                toastContainer.prepend(document.createRange().createContextualFragment(
+                    `<div class="toast ${isDisconnect ? 'disconnect' : ''}">
+                        <div class="profile" style="background-image: url('https://randomuser.me/api/portraits/${parseInt(user_id.toString().slice(-2)) & 1 ? "women" : "men"}/${user_id.toString().slice(-2)}.jpg')"></div>
+                        <div class="txt">User <b>${user_id}</b> has ${isDisconnect ? 'disconnected' : 'connected, say hi'}</div>
+                    </div>`));
+                setTimeout(() => {
+                    console.log(toastContainer.childNodes);
+                    toastContainer.removeChild(toastContainer.childNodes[toastContainer.childNodes.length - 1]);
+                }, 5000)
+            }
+
+            // SEND MESSAGE
+            document.getElementById('form').onsubmit = (e) => {
+                e.preventDefault();
+                if(!input.value.length) return;
+                socket.emit('msg', input.value, Date.now());
+                input.value = '';
+            }
+            
+            // USER CONNECT
+            socket.on('userconnect', (user_id) => toast(false, user_id));
+
+            //  USER DISCONNECT
+            socket.on('userdisconnect', (user_id) => toast(true, user_id));
+
+            // FIRST JOIN
+            socket.on('init', (store) => {
+                const nodemsg = document.createRange()
+                    .createContextualFragment(store.map(x => 
+                        `<li>
+                            <div class="profile" style="background-image: url('https://randomuser.me/api/portraits/${parseInt(x.user_id.slice(-2)) & 1 ? "women" : "men"}/${x.user_id.slice(-2)}.jpg')"></div>
+                            <span>${(new Date(x.unix)).toLocaleString()}</span>${x.message}
+                         </li>`).join(''));
+                display.appendChild(nodemsg);
+                scrollToBottom();
+            })
+
+            // RECIEVE MESSAGE
+            socket.on('msg', (msg, date, user_id) => {
+                const nodemsg = document.createRange()
+                    .createContextualFragment(
+                        `<li>
+                            <div class="profile" style="background-image: url('https://randomuser.me/api/portraits/${parseInt(user_id.toString().slice(-2)) & 1 ? "women" : "men"}/${user_id.toString().slice(-2)}.jpg')"></div>
+                            <span>${(new Date(date)).toLocaleString()}</span>${msg}
+                         </li>`);
+                display.appendChild(nodemsg);
+                scrollToBottom();
+            })
+        </script>
+    </body>
+</html>
