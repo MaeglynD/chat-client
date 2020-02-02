@@ -174,7 +174,6 @@
                         <div class="txt">User <b>${user_id}</b> has ${isDisconnect ? 'disconnected' : 'connected, say hi'}</div>
                     </div>`));
                 setTimeout(() => {
-                    console.log(toastContainer.childNodes);
                     toastContainer.removeChild(toastContainer.childNodes[toastContainer.childNodes.length - 1]);
                 }, 5000)
             }
